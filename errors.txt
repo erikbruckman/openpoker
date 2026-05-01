@@ -1,0 +1,88 @@
+src/Game.ts(1,10): error TS1295: ECMAScript imports and exports cannot be written in a CommonJS file under 'verbatimModuleSyntax'. Adjust the 'type' field in the nearest 'package.json' to make this file an ECMAScript module, or adjust your 'verbatimModuleSyntax', 'module', and 'moduleResolution' settings in TypeScript.
+src/Game.ts(2,10): error TS1295: ECMAScript imports and exports cannot be written in a CommonJS file under 'verbatimModuleSyntax'. Adjust the 'type' field in the nearest 'package.json' to make this file an ECMAScript module, or adjust your 'verbatimModuleSyntax', 'module', and 'moduleResolution' settings in TypeScript.
+src/Game.ts(3,10): error TS1295: ECMAScript imports and exports cannot be written in a CommonJS file under 'verbatimModuleSyntax'. Adjust the 'type' field in the nearest 'package.json' to make this file an ECMAScript module, or adjust your 'verbatimModuleSyntax', 'module', and 'moduleResolution' settings in TypeScript.
+src/Game.ts(4,10): error TS1295: ECMAScript imports and exports cannot be written in a CommonJS file under 'verbatimModuleSyntax'. Adjust the 'type' field in the nearest 'package.json' to make this file an ECMAScript module, or adjust your 'verbatimModuleSyntax', 'module', and 'moduleResolution' settings in TypeScript.
+src/Game.ts(4,25): error TS1295: ECMAScript imports and exports cannot be written in a CommonJS file under 'verbatimModuleSyntax'. Adjust the 'type' field in the nearest 'package.json' to make this file an ECMAScript module, or adjust your 'verbatimModuleSyntax', 'module', and 'moduleResolution' settings in TypeScript.
+src/Game.ts(4,25): error TS1484: 'HandResult' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/Game.ts(6,1): error TS1287: A top-level 'export' modifier cannot be used on value declarations in a CommonJS module when 'verbatimModuleSyntax' is enabled.
+src/Game.ts(15,1): error TS1287: A top-level 'export' modifier cannot be used on value declarations in a CommonJS module when 'verbatimModuleSyntax' is enabled.
+src/Game.ts(71,17): error TS18048: 'sbPlayer' is possibly 'undefined'.
+src/Game.ts(72,17): error TS18048: 'bbPlayer' is possibly 'undefined'.
+src/Game.ts(144,7): error TS2532: Object is possibly 'undefined'.
+src/Game.ts(158,22): error TS2532: Object is possibly 'undefined'.
+src/Game.ts(159,24): error TS2532: Object is possibly 'undefined'.
+src/Game.ts(163,45): error TS2532: Object is possibly 'undefined'.
+src/Game.ts(164,22): error TS2532: Object is possibly 'undefined'.
+src/Game.ts(193,12): error TS2532: Object is possibly 'undefined'.
+src/Game.ts(193,45): error TS2532: Object is possibly 'undefined'.
+src/Game.ts(204,9): error TS18048: 'player' is possibly 'undefined'.
+src/Game.ts(207,7): error TS18048: 'player' is possibly 'undefined'.
+src/Game.ts(209,53): error TS18048: 'player' is possibly 'undefined'.
+src/Game.ts(210,19): error TS18048: 'player' is possibly 'undefined'.
+src/Game.ts(212,62): error TS18048: 'player' is possibly 'undefined'.
+src/Game.ts(213,19): error TS18048: 'player' is possibly 'undefined'.
+src/models/Card.ts(1,1): error TS1287: A top-level 'export' modifier cannot be used on value declarations in a CommonJS module when 'verbatimModuleSyntax' is enabled.
+src/models/Card.ts(8,1): error TS1287: A top-level 'export' modifier cannot be used on value declarations in a CommonJS module when 'verbatimModuleSyntax' is enabled.
+src/models/Card.ts(24,1): error TS1287: A top-level 'export' modifier cannot be used on value declarations in a CommonJS module when 'verbatimModuleSyntax' is enabled.
+src/models/Deck.ts(1,10): error TS1295: ECMAScript imports and exports cannot be written in a CommonJS file under 'verbatimModuleSyntax'. Adjust the 'type' field in the nearest 'package.json' to make this file an ECMAScript module, or adjust your 'verbatimModuleSyntax', 'module', and 'moduleResolution' settings in TypeScript.
+src/models/Deck.ts(1,16): error TS1295: ECMAScript imports and exports cannot be written in a CommonJS file under 'verbatimModuleSyntax'. Adjust the 'type' field in the nearest 'package.json' to make this file an ECMAScript module, or adjust your 'verbatimModuleSyntax', 'module', and 'moduleResolution' settings in TypeScript.
+src/models/Deck.ts(1,22): error TS1295: ECMAScript imports and exports cannot be written in a CommonJS file under 'verbatimModuleSyntax'. Adjust the 'type' field in the nearest 'package.json' to make this file an ECMAScript module, or adjust your 'verbatimModuleSyntax', 'module', and 'moduleResolution' settings in TypeScript.
+src/models/Deck.ts(3,1): error TS1287: A top-level 'export' modifier cannot be used on value declarations in a CommonJS module when 'verbatimModuleSyntax' is enabled.
+src/models/Deck.ts(39,8): error TS2322: Type 'Card | undefined' is not assignable to type 'Card'.
+  Type 'undefined' is not assignable to type 'Card'.
+src/models/Deck.ts(39,34): error TS2322: Type 'Card | undefined' is not assignable to type 'Card'.
+  Type 'undefined' is not assignable to type 'Card'.
+src/models/Player.ts(1,10): error TS1295: ECMAScript imports and exports cannot be written in a CommonJS file under 'verbatimModuleSyntax'. Adjust the 'type' field in the nearest 'package.json' to make this file an ECMAScript module, or adjust your 'verbatimModuleSyntax', 'module', and 'moduleResolution' settings in TypeScript.
+src/models/Player.ts(3,1): error TS1287: A top-level 'export' modifier cannot be used on value declarations in a CommonJS module when 'verbatimModuleSyntax' is enabled.
+src/utils/HandEvaluator.ts(1,10): error TS1295: ECMAScript imports and exports cannot be written in a CommonJS file under 'verbatimModuleSyntax'. Adjust the 'type' field in the nearest 'package.json' to make this file an ECMAScript module, or adjust your 'verbatimModuleSyntax', 'module', and 'moduleResolution' settings in TypeScript.
+src/utils/HandEvaluator.ts(1,16): error TS1295: ECMAScript imports and exports cannot be written in a CommonJS file under 'verbatimModuleSyntax'. Adjust the 'type' field in the nearest 'package.json' to make this file an ECMAScript module, or adjust your 'verbatimModuleSyntax', 'module', and 'moduleResolution' settings in TypeScript.
+src/utils/HandEvaluator.ts(1,22): error TS1295: ECMAScript imports and exports cannot be written in a CommonJS file under 'verbatimModuleSyntax'. Adjust the 'type' field in the nearest 'package.json' to make this file an ECMAScript module, or adjust your 'verbatimModuleSyntax', 'module', and 'moduleResolution' settings in TypeScript.
+src/utils/HandEvaluator.ts(3,1): error TS1287: A top-level 'export' modifier cannot be used on value declarations in a CommonJS module when 'verbatimModuleSyntax' is enabled.
+src/utils/HandEvaluator.ts(26,1): error TS1287: A top-level 'export' modifier cannot be used on value declarations in a CommonJS module when 'verbatimModuleSyntax' is enabled.
+src/utils/HandEvaluator.ts(54,14): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(54,27): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(65,25): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(82,9): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(84,52): error TS2345: Argument of type 'Card[] | undefined' is not assignable to parameter of type 'Card[]'.
+  Type 'undefined' is not assignable to type 'Card[]'.
+src/utils/HandEvaluator.ts(87,24): error TS2488: Type 'Card[] | undefined' must have a '[Symbol.iterator]()' method that returns an iterator.
+src/utils/HandEvaluator.ts(88,39): error TS18048: 'quads' is possibly 'undefined'.
+src/utils/HandEvaluator.ts(88,39): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(88,55): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(93,9): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(93,68): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(95,21): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(95,41): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(99,37): error TS18048: 'trips' is possibly 'undefined'.
+src/utils/HandEvaluator.ts(99,37): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(99,53): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(118,36): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(123,9): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(125,52): error TS2345: Argument of type 'Card[] | undefined' is not assignable to parameter of type 'Card[]'.
+  Type 'undefined' is not assignable to type 'Card[]'.
+src/utils/HandEvaluator.ts(129,40): error TS18048: 'trips' is possibly 'undefined'.
+src/utils/HandEvaluator.ts(129,40): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(134,9): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(134,68): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(141,35): error TS18048: 'pair1' is possibly 'undefined'.
+src/utils/HandEvaluator.ts(141,35): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(141,51): error TS18048: 'pair2' is possibly 'undefined'.
+src/utils/HandEvaluator.ts(141,51): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(141,67): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(146,9): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(148,52): error TS2345: Argument of type 'Card[] | undefined' is not assignable to parameter of type 'Card[]'.
+  Type 'undefined' is not assignable to type 'Card[]'.
+src/utils/HandEvaluator.ts(152,32): error TS18048: 'pair' is possibly 'undefined'.
+src/utils/HandEvaluator.ts(152,32): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(172,16): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(172,29): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(194,39): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(202,11): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(202,34): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(209,9): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(212,36): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(212,71): error TS2532: Object is possibly 'undefined'.
+src/utils/HandEvaluator.ts(214,17): error TS2322: Type 'Card | undefined' is not assignable to type 'Card'.
+  Type 'undefined' is not assignable to type 'Card'.
+src/utils/HandEvaluator.ts(214,30): error TS2322: Type 'Card | undefined' is not assignable to type 'Card'.
+  Type 'undefined' is not assignable to type 'Card'.

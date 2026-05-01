@@ -1,0 +1,9 @@
+node_modules
+npm-debug.log
+dist
+src/**/*.test.ts
+.git
+.gitignore
+README.md
+LICENSE
+jest.config.js
