@@ -1,4 +1,3 @@
-import React from 'react';
 import { JoinScreen } from './components/JoinScreen';
 import { PokerTable } from './components/PokerTable';
 import { usePokerEngine } from './hooks/usePokerEngine';

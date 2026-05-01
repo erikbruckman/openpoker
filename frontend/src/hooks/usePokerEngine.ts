@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-import { GameState, PlayerAction, PublicGameState, PrivateGameState, PlayerData } from '../../../shared/types';
+import { GameState, PlayerAction } from '../../../shared/types';
+import type { PublicGameState, PrivateGameState, PlayerData } from '../../../shared/types';
 // Re-export for components that were importing them from here
 export { GameState, PlayerAction };
 export type { PublicGameState, PrivateGameState, PlayerData };
