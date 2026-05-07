@@ -6,7 +6,7 @@ import { useGameActions } from './useGameActions';
 
 export type { ConnectionStatus };
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const SOCKET_URL = import.meta.env.VITE_API_URL || window.location.origin;
 
 function getInitialRoomCode(): string {
   return new URLSearchParams(window.location.search).get('room') ?? '';

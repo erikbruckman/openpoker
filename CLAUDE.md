@@ -24,7 +24,7 @@ docker build -t openpoker .
 docker run -p 3001:3001 openpoker
 ```
 
-Both the backend (`npm run dev`) and frontend (`cd frontend && npm run dev`) must be running simultaneously in development. The frontend talks to `http://localhost:3001` (hardcoded in `frontend/src/hooks/usePokerEngine.ts`).
+Both the backend (`npm run dev`) and frontend (`cd frontend && npm run dev`) must be running simultaneously in development. The frontend connects to `http://localhost:3001` via `VITE_API_URL` (set automatically by `frontend/.env.development` in dev mode; falls back to `window.location.origin` in production).
 
 ---
 
@@ -136,9 +136,23 @@ When editing hand evaluation logic, run `npm test` after every change.
 
 ---
 
+## Deployment
+
+The app is deployed to GCP Cloud Run (`us-central1`) as a single instance. Deploy script: `npm run deploy` (runs `scripts/deploy.sh`).
+
+**Single-instance constraint**: all game state lives in `RoomManager`'s in-memory map. Running `--max-instances` above 1 splits Socket.io clients across machines and breaks active hands. The deploy script explicitly sets `--min-instances=1 --max-instances=1`. To safely scale beyond one instance, add a Socket.io Redis adapter and externalize `RoomManager` to a shared store first.
+
+**Session affinity** (`--session-affinity`) is enabled so any future increase to `max-instances` routes each client consistently to the same instance.
+
+**Health endpoint**: `GET /healthz` returns `{"ok":true,"uptime":<seconds>}`. It is placed before CORS middleware so Cloud Run and monitoring tools can reach it without any auth headers.
+
+**Custom domain**: Map a domain to Cloud Run with `gcloud run domain-mappings create --service=openpoker --domain=openholdem.net --region=us-central1`. For DDoS protection and DNS, use Cloudflare as a reverse proxy — see README for step-by-step setup.
+
+---
+
 ## Gotchas
 
-- The frontend Socket.io URL defaults to `http://localhost:3001` in `usePokerEngine.ts`. Override with `VITE_API_URL` env variable for production or Docker.
+- The Socket.io URL in `usePokerEngine.ts` reads `VITE_API_URL` and falls back to `window.location.origin`. In dev, Vite loads `frontend/.env.development` automatically (`VITE_API_URL=http://localhost:3001`). In the prod Docker image no env var is set, so the client connects to the same origin that served the page.
 - `src/models/PlayerAction.ts` is a thin re-export of `PlayerAction` from `shared/types.ts` — this exists for backwards compatibility. Import directly from `shared/types.ts` in new code.
 - Vite proxying is not configured. The frontend and backend must run on different ports; CORS is enabled in `src/server.ts` for `*` origins in dev.
 - `GameState.Showdown` transitions back to `GameState.Waiting` synchronously (no `setTimeout`) — `scoreHand()` calls `endHand()` inline.
