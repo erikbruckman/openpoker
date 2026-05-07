@@ -13,12 +13,14 @@ const corsOrigin: string | string[] = process.env.CORS_ORIGIN
   : '*';
 
 const app = express();
+app.set('trust proxy', true);
+
+app.get('/healthz', (_req, res) => {
+  res.status(200).json({ ok: true, uptime: process.uptime() });
+});
+
 app.use(cors({ origin: corsOrigin }));
 app.use(express.static(path.join(__dirname, '../public')));
-
-app.get('/health', (_req, res) => {
-  res.send('ok');
-});
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -31,6 +33,6 @@ const io = new Server(httpServer, {
 const roomManager = new RoomManager();
 new SocketController(io, roomManager);
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`[Server] Socket.io server running on port ${PORT}`);
 });
