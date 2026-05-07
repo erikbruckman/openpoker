@@ -7,7 +7,7 @@ import type { PublicGameState, PrivateGameState, PlayerData } from '../../../sha
 export { GameState, PlayerAction };
 export type { PublicGameState, PrivateGameState, PlayerData };
 
-const SOCKET_URL = 'http://localhost:3001';
+const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export function usePokerEngine() {
   const [socket, setSocket] = useState<Socket | null>(null);

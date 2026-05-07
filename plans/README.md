@@ -1,17 +1,19 @@
 # OpenPoker — Remediation Plans
 
-Six self-contained plans that together address the architectural and structural issues found in the early-stage codebase. Each plan is sized for a single focused agent run and lists its own context, goal, tasks, critical files, and verification steps.
+Self-contained plans that together address the architectural and structural issues found in the early-stage codebase, plus deployment. Each plan is sized for a single focused agent run and lists its own context, goal, tasks, critical files, and verification steps.
 
 ## Dependency order
 
 ```
 01 (build) ─┬─→ 02 (hygiene)
-            ├─→ 03 (deploy)        all three can proceed in parallel after 01
+            ├─→ 03 (deploy-config) ──┐
             └─→ 04 (correctness) ──→ 05 (refactor)
-                              ↘─→ 06 (frontend)   06 can also start after 01
+                              ↘─→ 06 (frontend) ──┤
+                                                  ↓
+                                        07 (GCP Cloud Run deploy)
 ```
 
-Plan 01 is a hard prerequisite for every other plan — nothing else builds cleanly until it lands.
+Plan 01 is a hard prerequisite for every other plan — nothing else builds cleanly until it lands. Plan 07 depends on 03 (env-driven config + full-stack Dockerfile) and benefits from 06 (URL routing for refresh-after-deploy).
 
 ## Plans
 
@@ -23,10 +25,11 @@ Plan 01 is a hard prerequisite for every other plan — nothing else builds clea
 | 04 | [Game logic correctness & validation](./04-game-logic-correctness.md) | All-in / side-pot logic, pot-remainder fix, SocketController input validation, lock down playerId reconnect. |
 | 05 | [Backend architecture refactor](./05-backend-architecture-refactor.md) | Split `Game.ts`, encapsulate state, dependency-inject `RoomManager`, expand tests. |
 | 06 | [Frontend reliability & UX](./06-frontend-reliability-and-ux.md) | Reconnect logic, error UX, hook split, URL routing, styling consolidation. |
+| 07 | [GCP Cloud Run deploy](./07-gcp-cloud-run-deploy.md) | Single-instance Cloud Run service, Artifact Registry, deploy script, health endpoint, observability. |
 
 ## Out of scope (future work)
 
 - Persistence — still in-memory by design.
-- Production observability (logging, metrics, tracing).
-- CI/CD pipeline (no `.github/workflows`).
+- Multi-instance scaling (requires Socket.io Redis adapter + externalized `RoomManager`).
 - Frontend test infrastructure.
+- Per-PR preview environments.

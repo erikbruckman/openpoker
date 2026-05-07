@@ -1,9 +1,14 @@
 node_modules
+frontend/node_modules
 npm-debug.log
 dist
+frontend/dist
 src/**/*.test.ts
 .git
 .gitignore
 README.md
 LICENSE
 jest.config.js
+errors.txt
+.env*
+plans
