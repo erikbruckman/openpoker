@@ -1,27 +1,26 @@
 import { JoinScreen } from './components/JoinScreen';
 import { PokerTable } from './components/PokerTable';
+import { ConnectionBanner, ErrorToast } from './components/ConnectionBanner';
 import { usePokerEngine } from './hooks/usePokerEngine';
 
 function App() {
-  const engine = usePokerEngine();
-  const { hasJoinedRoom, joinRoom, error } = engine;
-
-  const handleJoin = (name: string, room: string) => {
-    joinRoom(name, room);
-  };
+  const { status, hasJoinedRoom, gameState, privateState, error, playerId, joinRoom, startHand, takeAction, reconnect } = usePokerEngine();
 
   return (
     <div style={{ width: '100%', minHeight: '100vh' }}>
-      {error && (
-        <div style={{ position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'var(--accent-red)', color: 'white', padding: '12px 24px', borderRadius: '8px', zIndex: 100 }}>
-          {error}
-        </div>
-      )}
+      <ConnectionBanner status={status} onRetry={reconnect} />
+      {error && <ErrorToast message={error} />}
 
       {!hasJoinedRoom ? (
-        <JoinScreen onJoin={handleJoin} />
+        <JoinScreen onJoin={joinRoom} />
       ) : (
-        <PokerTable {...engine} />
+        <PokerTable
+          gameState={gameState}
+          privateState={privateState}
+          playerId={playerId}
+          startHand={startHand}
+          takeAction={takeAction}
+        />
       )}
     </div>
   );

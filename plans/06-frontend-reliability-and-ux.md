@@ -55,6 +55,7 @@ Split into composable hooks:
 - Pick one approach: CSS Modules (lowest friction with current setup), Tailwind (more refactor), or plain CSS files per component. Document in `CLAUDE.md`.
 - Consolidate inline styles from `PokerTable.tsx`, `PlayingCard.tsx`, `JoinScreen.tsx` into the chosen system.
 - Define a small set of design tokens (spacing, colors, radii) in CSS custom properties.
+- Add buttons to the left and right of the betting input for quick negative and positive betting changes. Include positive and negative 50, 100, and 500 increments.
 
 ### F. Input validation
 

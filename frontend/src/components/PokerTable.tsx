@@ -1,112 +1,122 @@
 import React, { useState } from 'react';
-import { GameState, PlayerAction } from '../hooks/usePokerEngine';
-import type { PublicGameState, PrivateGameState } from '../hooks/usePokerEngine';
+import { GameState, PlayerAction } from '../../../shared/types';
+import type { PublicGameState, PrivateGameState } from '../../../shared/types';
 import { PlayingCard } from './PlayingCard';
+import styles from './PokerTable.module.css';
 
 interface PokerTableProps {
   gameState: PublicGameState | null;
   privateState: PrivateGameState | null;
-  isConnected: boolean;
   playerId: string | null;
   startHand: () => void;
   takeAction: (action: PlayerAction, amount?: number) => void;
 }
 
-export const PokerTable: React.FC<PokerTableProps> = ({ gameState, privateState, isConnected, playerId, startHand, takeAction }) => {
+const BET_DECREMENTS = [-500, -100, -50] as const;
+const BET_INCREMENTS = [50, 100, 500] as const;
+
+export const PokerTable: React.FC<PokerTableProps> = ({
+  gameState,
+  privateState,
+  playerId,
+  startHand,
+  takeAction,
+}) => {
   const [betAmount, setBetAmount] = useState(0);
 
-  if (!gameState) return <div style={{ color: 'white', textAlign: 'center', marginTop: '50px' }}>Loading table state...</div>;
+  if (!gameState) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.loadingContainer}>
+          <div className={styles.loadingSpinner} />
+          <span className={styles.loadingText}>Connecting to table…</span>
+        </div>
+      </div>
+    );
+  }
+
+  const myPlayer = gameState.players.find(p => p.id === playerId) ?? null;
+  const maxBet = myPlayer?.chips ?? 0;
+  const isBetValid = betAmount >= 1 && betAmount <= maxBet && Number.isInteger(betAmount);
+
+  const adjustBet = (delta: number) => {
+    setBetAmount(prev => Math.min(maxBet, Math.max(0, prev + delta)));
+  };
+
+  const handleBetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value, 10);
+    setBetAmount(isNaN(val) ? 0 : Math.min(maxBet, Math.max(0, val)));
+  };
+
+  const isHandActive = gameState.state !== GameState.Waiting && gameState.state !== GameState.Showdown;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', padding: '20px' }}>
-
-      {/* Header Info */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <div className="glass-panel" style={{ padding: '8px 16px' }}>
-          <span style={{ color: 'var(--text-muted)' }}>Status:</span>{' '}
-          <span style={{ color: isConnected ? 'var(--accent-green)' : 'var(--accent-red)', fontWeight: 'bold' }}>
-            {isConnected ? 'Connected' : 'Disconnected'}
-          </span>
+    <div className={styles.container}>
+      {/* Header */}
+      <div className={styles.header}>
+        <div className={`glass-panel ${styles.headerBadge}`}>
+          Room: <strong>{new URLSearchParams(window.location.search).get('room') ?? '—'}</strong>
         </div>
-        <div className="glass-panel" style={{ padding: '8px 16px', fontWeight: 'bold' }}>
-          State: <span style={{ color: 'var(--accent-blue)' }}>{gameState.state}</span>
+        <div className={`glass-panel ${styles.headerBadge}`}>
+          State: <span className={styles.gameStateName}>{gameState.state}</span>
         </div>
       </div>
 
-      {/* Main Table Area */}
-      <div style={{
-        flex: 1,
-        backgroundColor: 'var(--bg-table)',
-        borderRadius: '100px',
-        border: '8px solid rgba(255,255,255,0.05)',
-        boxShadow: 'inset 0 0 50px rgba(0,0,0,0.5), 0 20px 50px rgba(0,0,0,0.3)',
-        position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        margin: '40px 0'
-      }}>
-
-        {/* Pot & Community Cards */}
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ marginBottom: '16px', fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--accent-green)' }}>
-            Pot: ${gameState.pot}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'center', minHeight: '84px' }}>
+      {/* Main Table */}
+      <div className={styles.tableArea}>
+        {/* Center: pot + community cards */}
+        <div className={styles.tableCenter}>
+          <div className={styles.pot}>Pot: ${gameState.pot}</div>
+          <div className={styles.communityCards}>
             {gameState.communityCards.map((card, i) => (
               <PlayingCard key={i} suit={card.suit} value={card.value} />
             ))}
           </div>
+          {gameState.state === GameState.Waiting && (
+            <div className={styles.waitingMessage}>Waiting for players…</div>
+          )}
         </div>
 
         {/* Players */}
         {gameState.players.map((player, index) => {
-          // Simplistic positioning around the table
           const angle = (index / gameState.players.length) * Math.PI * 2;
-          const radiusX = 40; // percentage
-          const radiusY = 30; // percentage
-          const top = 50 - Math.cos(angle) * radiusY;
-          const left = 50 + Math.sin(angle) * radiusX;
+          const top = 50 - Math.cos(angle) * 30;
+          const left = 50 + Math.sin(angle) * 40;
 
           const isMyTurn = gameState.currentPlayerTurn === index;
           const isMe = player.id === playerId;
+          const isFolded = player.currentAction === PlayerAction.Fold;
+
+          const actionClass =
+            player.currentAction === PlayerAction.Raise ? styles.actionRaise :
+            player.currentAction === PlayerAction.Check ? styles.actionCheck :
+            styles.actionCall;
 
           return (
-            <div key={player.id} className="glass-panel" style={{
-              position: 'absolute',
-              top: `${top}%`,
-              left: `${left}%`,
-              transform: 'translate(-50%, -50%)',
-              padding: '12px',
-              border: isMyTurn ? '2px solid var(--accent-blue)' : '1px solid var(--glass-border)',
-              backgroundColor: player.currentAction === PlayerAction.Fold ? 'rgba(0,0,0,0.5)' : 'var(--glass-bg)',
-              transition: 'all 0.3s',
-              zIndex: 10
-            }}>
-              <div style={{ fontWeight: 'bold', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {player.name} {isMe && <span style={{ color: 'var(--accent-blue)', fontSize: '0.8rem' }}>(Me)</span>}
-                {player.currentAction !== PlayerAction.None && player.currentAction !== PlayerAction.Fold && (
-                  <span style={{
-                    fontSize: '0.7rem',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    backgroundColor: player.currentAction === PlayerAction.Raise ? 'var(--accent-red)' :
-                                     player.currentAction === PlayerAction.Check ? 'var(--accent-green)' :
-                                     'var(--accent-blue)',
-                    color: 'white',
-                    fontWeight: 'normal'
-                  }}>
+            <div
+              key={player.id}
+              className={[
+                'glass-panel',
+                styles.player,
+                isMyTurn ? styles.playerActive : '',
+                isFolded ? styles.playerFolded : '',
+              ].join(' ')}
+              style={{ top: `${top}%`, left: `${left}%` }}
+            >
+              <div className={styles.playerName}>
+                {player.name}
+                {isMe && <span className={styles.meLabel}>(Me)</span>}
+                {player.currentAction !== PlayerAction.None && !isFolded && (
+                  <span className={`${styles.actionBadge} ${actionClass}`}>
                     {player.currentAction}
                   </span>
                 )}
               </div>
-              <div style={{ color: 'var(--accent-green)', fontSize: '0.9rem', marginBottom: '8px' }}>${player.chips}</div>
+              <div className={styles.playerChips}>${player.chips}</div>
               {player.currentBet > 0 && (
-                <div style={{ position: 'absolute', top: '-25px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(0,0,0,0.6)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem' }}>
-                  Bet: ${player.currentBet}
-                </div>
+                <div className={styles.playerBet}>Bet: ${player.currentBet}</div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <div className={styles.playerCards}>
                 {player.currentHand.map((card, i) => (
                   <PlayingCard key={i} suit={card.suit} value={card.value} hidden={card.suit === 'hidden'} />
                 ))}
@@ -114,44 +124,99 @@ export const PokerTable: React.FC<PokerTableProps> = ({ gameState, privateState,
             </div>
           );
         })}
+
+        {/* Dealer button indicator */}
+        {gameState.players[gameState.dealerButtonIndex] && (() => {
+          const idx = gameState.dealerButtonIndex;
+          const angle = (idx / gameState.players.length) * Math.PI * 2;
+          const top = 50 - Math.cos(angle) * 30;
+          const left = 50 + Math.sin(angle) * 40;
+          return (
+            <div
+              style={{
+                position: 'absolute',
+                top: `calc(${top}% - 28px)`,
+                left: `calc(${left}% + 28px)`,
+                width: '22px',
+                height: '22px',
+                background: 'white',
+                color: '#0f172a',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.6rem',
+                fontWeight: 'bold',
+                zIndex: 20,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >D</div>
+          );
+        })()}
       </div>
 
       {/* Action Controls */}
-      <div className="glass-panel" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-
-        {/* Only show "Start Hand" if waiting or showdown */}
-        {(gameState.state === GameState.Waiting || gameState.state === GameState.Showdown) ? (
-          <button className="btn-primary" onClick={startHand} style={{ width: '100%' }}>
+      <div className={`glass-panel ${styles.controls}`}>
+        {!isHandActive ? (
+          <button className={`btn-primary ${styles.dealButton}`} onClick={startHand}>
             Deal Next Hand
           </button>
         ) : (
           <>
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div className={styles.actionButtons}>
               <button className="btn-danger" onClick={() => takeAction(PlayerAction.Fold)}>Fold</button>
               <button className="btn-primary" onClick={() => takeAction(PlayerAction.Call)}>Call / Check</button>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <div className={styles.betControls}>
+              <div className={styles.betAdjustGroup}>
+                {BET_DECREMENTS.map(d => (
+                  <button
+                    key={d}
+                    className={styles.betAdjustButton}
+                    onClick={() => adjustBet(d)}
+                    disabled={betAmount + d < 0}
+                  >{d}</button>
+                ))}
+              </div>
+
               <input
                 type="number"
-                className="input-field"
-                style={{ width: '100px' }}
+                className={`input-field ${styles.betInput}`}
                 value={betAmount}
-                onChange={(e) => setBetAmount(Number(e.target.value))}
-                placeholder="Amount"
+                min={0}
+                max={maxBet}
+                onChange={handleBetChange}
               />
-              <button className="btn-success" onClick={() => takeAction(PlayerAction.Raise, betAmount)}>Raise</button>
+
+              <div className={styles.betAdjustGroup}>
+                {BET_INCREMENTS.map(d => (
+                  <button
+                    key={d}
+                    className={styles.betAdjustButton}
+                    onClick={() => adjustBet(d)}
+                    disabled={betAmount + d > maxBet}
+                  >+{d}</button>
+                ))}
+              </div>
+
+              <button
+                className="btn-success"
+                onClick={() => takeAction(PlayerAction.Raise, betAmount)}
+                disabled={!isBetValid}
+              >
+                Raise
+              </button>
             </div>
           </>
         )}
-
       </div>
 
-      {/* Private Hand Display (For the local player) */}
+      {/* Private hole cards overlay */}
       {privateState && privateState.hand.length > 0 && (
-        <div style={{ position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px', pointerEvents: 'none' }}>
+        <div className={styles.privateHand}>
           {privateState.hand.map((card, i) => (
-            <div key={i} style={{ transform: 'scale(1.5) translateY(-20px)' }}>
+            <div key={i} className={styles.privateCard}>
               <PlayingCard suit={card.suit} value={card.value} />
             </div>
           ))}
