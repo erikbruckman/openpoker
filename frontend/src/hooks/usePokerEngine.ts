@@ -71,7 +71,7 @@ export function usePokerEngine() {
     }
   }, [socket, roomCode]);
 
-  const takeAction = useCallback((action: 'fold' | 'call' | 'raise', amount?: number) => {
+  const takeAction = useCallback((action: PlayerAction, amount?: number) => {
     if (socket && roomCode) {
       socket.emit('playerAction', { roomCode, action, amount });
     }

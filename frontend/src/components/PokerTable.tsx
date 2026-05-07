@@ -9,7 +9,7 @@ interface PokerTableProps {
   isConnected: boolean;
   playerId: string | null;
   startHand: () => void;
-  takeAction: (action: 'fold' | 'call' | 'raise', amount?: number) => void;
+  takeAction: (action: PlayerAction, amount?: number) => void;
 }
 
 export const PokerTable: React.FC<PokerTableProps> = ({ gameState, privateState, isConnected, playerId, startHand, takeAction }) => {
@@ -127,8 +127,8 @@ export const PokerTable: React.FC<PokerTableProps> = ({ gameState, privateState,
         ) : (
           <>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button className="btn-danger" onClick={() => takeAction('fold')}>Fold</button>
-              <button className="btn-primary" onClick={() => takeAction('call')}>Call / Check</button>
+              <button className="btn-danger" onClick={() => takeAction(PlayerAction.Fold)}>Fold</button>
+              <button className="btn-primary" onClick={() => takeAction(PlayerAction.Call)}>Call / Check</button>
             </div>
 
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -140,7 +140,7 @@ export const PokerTable: React.FC<PokerTableProps> = ({ gameState, privateState,
                 onChange={(e) => setBetAmount(Number(e.target.value))}
                 placeholder="Amount"
               />
-              <button className="btn-success" onClick={() => takeAction('raise', betAmount)}>Raise</button>
+              <button className="btn-success" onClick={() => takeAction(PlayerAction.Raise, betAmount)}>Raise</button>
             </div>
           </>
         )}

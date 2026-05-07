@@ -2,22 +2,20 @@ import { Card } from './models/Card';
 import { Deck } from './models/Deck';
 import { Player } from './models/Player';
 import { HandEvaluator, HandResult } from './utils/HandEvaluator';
-import { PlayerAction } from '../shared/types';
-
-import { GameState, PublicGameState, PrivateGameState } from '../shared/types';
+import { PlayerAction, GameState, PublicGameState, PrivateGameState } from '../shared/types';
+import { GAME_CONFIG } from './config/gameConfig';
 
 export class Game {
   public players: Player[] = [];
   public deck: Deck;
   public communityCards: Card[] = [];
   public pot: number = 0;
-  
+
   public state: GameState = GameState.Waiting;
   public dealerButtonIndex: number = 0;
-  public smallBlind: number = 10;
-  public bigBlind: number = 20;
+  public smallBlind: number = GAME_CONFIG.smallBlind;
+  public bigBlind: number = GAME_CONFIG.bigBlind;
 
-  // Track turn logic
   public currentPlayerTurn: number = -1;
   public currentHighestBet: number = 0;
 
@@ -33,11 +31,8 @@ export class Game {
     this.players = this.players.filter(p => p.id !== playerId);
   }
 
-  /**
-   * Starts a new hand. Shuffles deck, posts blinds, deals hole cards.
-   */
   public startHand(): void {
-    if (this.players.length < 2) {
+    if (this.players.length < GAME_CONFIG.minPlayers) {
       throw new Error('Not enough players to start a hand.');
     }
 
@@ -46,27 +41,20 @@ export class Game {
     this.communityCards = [];
     this.currentHighestBet = 0;
 
-    // Reset players
     for (const player of this.players) {
       player.resetForNewHand();
     }
 
-    // Prepare deck
     this.deck.initialize();
     this.deck.shuffle();
 
-    // Post Blinds (Simplified: assumes players have enough chips, doesn't handle all-in strictly on blinds yet)
     const sbIndex = (this.dealerButtonIndex + 1) % this.players.length;
     const bbIndex = (this.dealerButtonIndex + 2) % this.players.length;
 
-    const sbPlayer = this.players[sbIndex];
-    const bbPlayer = this.players[bbIndex];
-
-    this.pot += sbPlayer.bet(this.smallBlind);
-    this.pot += bbPlayer.bet(this.bigBlind);
+    this.pot += this.players[sbIndex].bet(this.smallBlind);
+    this.pot += this.players[bbIndex].bet(this.bigBlind);
     this.currentHighestBet = this.bigBlind;
 
-    // Deal hole cards (2 each)
     for (let i = 0; i < 2; i++) {
       for (const player of this.players) {
         const card = this.deck.draw();
@@ -74,21 +62,16 @@ export class Game {
       }
     }
 
-    // Set turn to player after big blind
     this.currentPlayerTurn = (bbIndex + 1) % this.players.length;
 
-    // Blinds are forced bets. No one has voluntarily acted yet.
     for (const p of this.players) {
-        p.currentAction = PlayerAction.None;
+      p.currentAction = PlayerAction.None;
     }
   }
 
-  /**
-   * Deals the Flop (3 cards) and updates state.
-   */
   public dealFlop(): void {
     if (this.state !== GameState.PreFlop) throw new Error('Cannot deal flop right now.');
-    this.deck.draw(); // Burn card
+    this.deck.draw(); // burn
     for (let i = 0; i < 3; i++) {
       const card = this.deck.draw();
       if (card) this.communityCards.push(card);
@@ -97,24 +80,18 @@ export class Game {
     this.resetBetsForNewRound();
   }
 
-  /**
-   * Deals the Turn (1 card) and updates state.
-   */
   public dealTurn(): void {
     if (this.state !== GameState.Flop) throw new Error('Cannot deal turn right now.');
-    this.deck.draw(); // Burn card
+    this.deck.draw(); // burn
     const card = this.deck.draw();
     if (card) this.communityCards.push(card);
     this.state = GameState.Turn;
     this.resetBetsForNewRound();
   }
 
-  /**
-   * Deals the River (1 card) and updates state.
-   */
   public dealRiver(): void {
     if (this.state !== GameState.Turn) throw new Error('Cannot deal river right now.');
-    this.deck.draw(); // Burn card
+    this.deck.draw(); // burn
     const card = this.deck.draw();
     if (card) this.communityCards.push(card);
     this.state = GameState.River;
@@ -129,63 +106,96 @@ export class Game {
         player.currentAction = PlayerAction.None;
       }
     }
-    // In post-flop rounds, action starts with the first active player after the dealer
     this.currentPlayerTurn = this.getNextActivePlayerIndex(this.dealerButtonIndex);
+
+    // When every remaining player is all-in, no one can act — run out the board automatically.
+    if (this.currentPlayerTurn === -1) {
+      this.advanceGameState();
+    }
   }
 
-  /**
-   * Scores the hand and awards the pot to the winner(s).
-   */
   public scoreHand(): void {
     this.state = GameState.Showdown;
 
     const activePlayers = this.players.filter(p => p.currentAction !== PlayerAction.Fold);
 
     if (activePlayers.length === 1) {
-      // Everyone else folded
       activePlayers[0].chips += this.pot;
       this.endHand();
       return;
     }
 
-    // Evaluate all hands
     const playerResults: { player: Player; result: HandResult }[] = activePlayers.map(player => ({
       player,
       result: HandEvaluator.evaluate([...player.currentHand, ...this.communityCards]),
     }));
 
-    // Sort descending by hand strength
-    playerResults.sort((a, b) => HandEvaluator.compare(b.result, a.result));
+    for (const sidePot of this.computeSidePots()) {
+      const eligibleResults = playerResults.filter(r =>
+        sidePot.eligible.some(e => e.id === r.player.id)
+      );
+      eligibleResults.sort((a, b) => HandEvaluator.compare(b.result, a.result));
 
-    const winners = [playerResults[0].player];
-    const bestResult = playerResults[0].result;
+      const winners = [eligibleResults[0].player];
+      const bestResult = eligibleResults[0].result;
 
-    // Check for ties
-    for (let i = 1; i < playerResults.length; i++) {
-      if (HandEvaluator.compare(bestResult, playerResults[i].result) === 0) {
-        winners.push(playerResults[i].player);
-      } else {
-        break;
+      for (let i = 1; i < eligibleResults.length; i++) {
+        if (HandEvaluator.compare(bestResult, eligibleResults[i].result) === 0) {
+          winners.push(eligibleResults[i].player);
+        } else {
+          break;
+        }
       }
-    }
 
-    // Award pot (split if necessary)
-    // Simplified: doesn't handle fractional chips perfectly if pot isn't perfectly divisible
-    const splitAmount = Math.floor(this.pot / winners.length);
-    for (const winner of winners) {
-      winner.chips += splitAmount;
+      const splitAmount = Math.floor(sidePot.amount / winners.length);
+      const remainder = sidePot.amount % winners.length;
+      for (const winner of winners) {
+        winner.chips += splitAmount;
+      }
+      // Odd chip goes to the first eligible winner (closest to dealer's left in the array).
+      winners[0].chips += remainder;
     }
 
     this.endHand();
   }
 
+  private computeSidePots(): Array<{ amount: number; eligible: Player[] }> {
+    const pots: Array<{ amount: number; eligible: Player[] }> = [];
+    const remaining = new Map(this.players.map(p => [p.id, p.contributedThisHand]));
+    const folded = new Set(
+      this.players.filter(p => p.currentAction === PlayerAction.Fold).map(p => p.id)
+    );
+
+    while (true) {
+      let minContrib = Infinity;
+      for (const contrib of remaining.values()) {
+        if (contrib > 0 && contrib < minContrib) minContrib = contrib;
+      }
+      if (minContrib === Infinity) break;
+
+      let potAmount = 0;
+      const eligible: Player[] = [];
+
+      for (const player of this.players) {
+        const contrib = remaining.get(player.id)!;
+        if (contrib > 0) {
+          const take = Math.min(contrib, minContrib);
+          potAmount += take;
+          remaining.set(player.id, contrib - take);
+          if (!folded.has(player.id)) eligible.push(player);
+        }
+      }
+
+      pots.push({ amount: potAmount, eligible });
+    }
+
+    return pots;
+  }
+
   private endHand(): void {
     this.pot = 0;
     this.state = GameState.Waiting;
-    
-    // Clean up disconnected players
     this.players = this.players.filter(p => !p.isDisconnected);
-    
     if (this.players.length > 0) {
       this.dealerButtonIndex = (this.dealerButtonIndex + 1) % this.players.length;
     } else {
@@ -193,14 +203,13 @@ export class Game {
     }
   }
 
-  // --- Betting Helpers ---
-
   public getNextActivePlayerIndex(currentIndex: number): number {
     let index = currentIndex;
     let count = 0;
     while (count < this.players.length) {
       index = (index + 1) % this.players.length;
-      if (this.players[index].currentAction !== PlayerAction.Fold && this.players[index].chips > 0) { // ignoring all-ins for simplicity in this basic version
+      const player = this.players[index];
+      if (player.currentAction !== PlayerAction.Fold && player.chips > 0) {
         return index;
       }
       count++;
@@ -208,29 +217,37 @@ export class Game {
     return -1;
   }
 
-  // Example action method
-  public handlePlayerAction(playerId: string, action: 'fold' | 'call' | 'raise', amount?: number): void {
+  public handlePlayerAction(playerId: string, action: PlayerAction, amount?: number): void {
     const player = this.players[this.currentPlayerTurn];
-    if (player.id !== playerId) throw new Error('Not this player\'s turn.');
+    if (!player || player.id !== playerId) throw new Error("Not this player's turn.");
 
-    if (action === 'fold') {
+    if (action === PlayerAction.Fold) {
       player.currentAction = PlayerAction.Fold;
-    } else if (action === 'call') {
+    } else if (action === PlayerAction.Check) {
+      if (this.currentHighestBet !== player.currentBet) {
+        throw new Error('Cannot check when there is an outstanding bet.');
+      }
+      player.currentAction = PlayerAction.Check;
+    } else if (action === PlayerAction.Call) {
       const amountToCall = this.currentHighestBet - player.currentBet;
       this.pot += player.bet(amountToCall);
       player.currentAction = amountToCall === 0 ? PlayerAction.Check : PlayerAction.Call;
-    } else if (action === 'raise' && amount) {
+    } else if (action === PlayerAction.Raise && amount !== undefined && amount > 0) {
       const amountToCallAndRaise = (this.currentHighestBet - player.currentBet) + amount;
       this.pot += player.bet(amountToCallAndRaise);
-      this.currentHighestBet += amount;
-      player.currentAction = PlayerAction.Raise;
-      
-      // A raise re-opens the betting round for everyone else
-      for (const p of this.players) {
-        if (p.id !== player.id && p.currentAction !== PlayerAction.Fold) {
-          p.currentAction = PlayerAction.None;
+      const newBet = player.currentBet;
+      if (newBet > this.currentHighestBet) {
+        this.currentHighestBet = newBet;
+        // A raise re-opens betting for everyone who can still act.
+        for (const p of this.players) {
+          if (p.id !== player.id && p.currentAction !== PlayerAction.Fold && p.chips > 0) {
+            p.currentAction = PlayerAction.None;
+          }
         }
       }
+      player.currentAction = PlayerAction.Raise;
+    } else {
+      throw new Error('Invalid action or missing raise amount.');
     }
 
     if (this.isBettingRoundOver()) {
@@ -242,36 +259,30 @@ export class Game {
 
   private isBettingRoundOver(): boolean {
     const activePlayers = this.players.filter(p => p.currentAction !== PlayerAction.Fold);
-    if (activePlayers.length <= 1) return true; // everyone else folded
-    
-    // Check if everyone has acted and matched the bet (or is all-in, but assuming chips > 0 for now)
-    return activePlayers.every(p => p.currentAction !== PlayerAction.None && p.currentBet === this.currentHighestBet);
+    if (activePlayers.length <= 1) return true;
+    return activePlayers.every(p =>
+      p.chips === 0 || // all-in players have no further obligation
+      (p.currentAction !== PlayerAction.None && p.currentBet === this.currentHighestBet)
+    );
   }
 
   private advanceGameState(): void {
     const activePlayers = this.players.filter(p => p.currentAction !== PlayerAction.Fold);
     if (activePlayers.length <= 1) {
-        this.scoreHand();
-        return;
+      this.scoreHand();
+      return;
     }
-
     if (this.state === GameState.PreFlop) {
-        this.dealFlop();
+      this.dealFlop();
     } else if (this.state === GameState.Flop) {
-        this.dealTurn();
+      this.dealTurn();
     } else if (this.state === GameState.Turn) {
-        this.dealRiver();
+      this.dealRiver();
     } else if (this.state === GameState.River) {
-        this.scoreHand();
+      this.scoreHand();
     }
   }
 
-  // --- Serialization ---
-
-  /**
-   * Returns the state of the game meant to be broadcasted to ALL players.
-   * Strips out the deck and other players' hole cards (unless Showdown).
-   */
   public getPublicState(): PublicGameState {
     return {
       state: this.state,
@@ -286,18 +297,18 @@ export class Game {
         chips: p.chips,
         currentBet: p.currentBet,
         currentAction: p.currentAction,
-        currentHand: this.state === GameState.Showdown ? p.currentHand : (p.currentHand.length > 0 ? [{suit: 'hidden', value: 0}, {suit: 'hidden', value: 0}] : [])
+        currentHand:
+          this.state === GameState.Showdown
+            ? p.currentHand
+            : p.currentHand.length > 0
+            ? [{ suit: 'hidden', value: 0 }, { suit: 'hidden', value: 0 }]
+            : [],
       })),
     };
   }
 
-  /**
-   * Returns the private state for a specific player (their real hand).
-   */
   public getPrivateState(playerId: string): PrivateGameState {
     const player = this.players.find(p => p.id === playerId);
-    return {
-      hand: player ? player.currentHand : []
-    };
+    return { hand: player ? player.currentHand : [] };
   }
 }
