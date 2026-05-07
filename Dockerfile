@@ -27,4 +27,4 @@ RUN npm install --omit=dev
 COPY --from=backend-builder /app/dist ./dist
 COPY --from=frontend-builder /app/frontend/dist ./public
 EXPOSE 3001
-CMD ["node", "dist/server.js"]
+CMD ["node", "dist/src/server.js"]
