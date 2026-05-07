@@ -1,8 +1,10 @@
-import { Game } from '../Game';
+import { Game } from '../game/Game';
 import { Player } from '../models/Player';
 import { Card, Suit, Rank } from '../models/Card';
 import { PlayerAction, GameState } from '../../shared/types';
 import { validatePlayerName, validateRoomCode, validateAction, validateAmount } from '../utils/validate';
+import { RoomManager } from '../RoomManager';
+import { resolveShowdown, computeSidePots } from '../game/Showdown';
 
 // Helper: build a Card quickly.
 const c = (suit: Suit, value: Rank) => new Card(suit, value);
@@ -60,6 +62,35 @@ describe('standard 2-player hand', () => {
     expect(game.state).toBe(GameState.Waiting);
     expect(alice.chips + bob.chips).toBe(10000);
     expect(alice.chips).toBeGreaterThan(5000); // Alice won the pot
+  });
+
+  it('conserves chips through a raise-and-call hand', () => {
+    const game = new Game('test');
+    const alice = new Player('alice', 'Alice', 5000);
+    const bob = new Player('bob', 'Bob', 5000);
+    game.addPlayer(alice);
+    game.addPlayer(bob);
+
+    game.startHand();
+
+    // Bob raises, Alice calls.
+    game.handlePlayerAction('bob', PlayerAction.Raise, 100);
+    game.handlePlayerAction('alice', PlayerAction.Call);
+    expect(game.state).toBe(GameState.Flop);
+
+    game.handlePlayerAction('bob', PlayerAction.Check);
+    game.handlePlayerAction('alice', PlayerAction.Check);
+    expect(game.state).toBe(GameState.Turn);
+
+    game.handlePlayerAction('bob', PlayerAction.Check);
+    game.handlePlayerAction('alice', PlayerAction.Check);
+    expect(game.state).toBe(GameState.River);
+
+    game.handlePlayerAction('bob', PlayerAction.Check);
+    game.handlePlayerAction('alice', PlayerAction.Check);
+    expect(game.state).toBe(GameState.Waiting);
+
+    expect(alice.chips + bob.chips).toBe(10000);
   });
 });
 
@@ -154,45 +185,38 @@ describe('all-in mechanics', () => {
     game.addPlayer(charlie);
 
     // Manually mark bob as having acted (not folded, just all-in).
-    bob.currentAction = PlayerAction.Raise;
+    bob.setAction(PlayerAction.Raise);
 
     // Starting from index 0 (alice), next active should skip bob (chips=0) → charlie (2).
     expect(game.getNextActivePlayerIndex(0)).toBe(2);
 
     // Mark alice as folded — next after 0 should skip alice and bob → charlie.
-    alice.currentAction = PlayerAction.Fold;
+    alice.setAction(PlayerAction.Fold);
     expect(game.getNextActivePlayerIndex(0)).toBe(2);
 
     // Mark charlie as folded — no active players → -1.
-    charlie.currentAction = PlayerAction.Fold;
+    charlie.setAction(PlayerAction.Fold);
     expect(game.getNextActivePlayerIndex(0)).toBe(-1);
   });
 });
 
 describe('side pot distribution', () => {
   it('awards main pot to best hand, side pot to next-best', () => {
-    const game = new Game('test');
-    // After betting: alice all-in for 50, bob/charlie each contributed 150.
-    // alice.chips=0, bob.chips=350, charlie.chips=350; pot=350.
-    const alice = new Player('alice', 'Alice', 0);
-    const bob = new Player('bob', 'Bob', 350);
-    const charlie = new Player('charlie', 'Charlie', 350);
-    game.addPlayer(alice);
-    game.addPlayer(bob);
-    game.addPlayer(charlie);
+    // Alice all-in for 50, Bob and Charlie each contribute 150.
+    const alice = new Player('alice', 'Alice', 50);
+    const bob = new Player('bob', 'Bob', 500);
+    const charlie = new Player('charlie', 'Charlie', 500);
 
-    game.state = GameState.River;
-    game.pot = 350;
-    alice.contributedThisHand = 50;
-    bob.contributedThisHand = 150;
-    charlie.contributedThisHand = 150;
-    alice.currentAction = PlayerAction.Raise;  // not folded
-    bob.currentAction = PlayerAction.Call;
-    charlie.currentAction = PlayerAction.Call;
+    alice.bet(50);    // all-in: chips=0, contributed=50
+    bob.bet(150);     // chips=350, contributed=150
+    charlie.bet(150); // chips=350, contributed=150
+
+    alice.setAction(PlayerAction.Raise);
+    bob.setAction(PlayerAction.Call);
+    charlie.setAction(PlayerAction.Call);
 
     // Community: three 5s + two 2s → full house 5-5-5-2-2 on board.
-    // Each player's best hand is the full house they make with their hole cards.
-    game.communityCards = [
+    const community = [
       c(Suit.Diamonds, Rank.Five),
       c(Suit.Hearts, Rank.Five),
       c(Suit.Clubs, Rank.Five),
@@ -201,13 +225,13 @@ describe('side pot distribution', () => {
     ];
 
     // Alice: full house 5-5-5-A-A (best — aces over 5s).
-    alice.currentHand = [c(Suit.Diamonds, Rank.Ace), c(Suit.Hearts, Rank.Ace)];
+    alice.receiveCards([c(Suit.Diamonds, Rank.Ace), c(Suit.Hearts, Rank.Ace)]);
     // Bob: full house 5-5-5-K-K (second — kings over 5s).
-    bob.currentHand = [c(Suit.Diamonds, Rank.King), c(Suit.Hearts, Rank.King)];
+    bob.receiveCards([c(Suit.Diamonds, Rank.King), c(Suit.Hearts, Rank.King)]);
     // Charlie: full house 5-5-5-Q-Q (third).
-    charlie.currentHand = [c(Suit.Diamonds, Rank.Queen), c(Suit.Hearts, Rank.Queen)];
+    charlie.receiveCards([c(Suit.Diamonds, Rank.Queen), c(Suit.Hearts, Rank.Queen)]);
 
-    game.scoreHand();
+    resolveShowdown([alice, bob, charlie], community);
 
     // Side pots:
     //   Main pot (50*3=150): eligible [alice, bob, charlie] → alice wins.
@@ -219,52 +243,110 @@ describe('side pot distribution', () => {
   });
 
   it('folded-player contribution creates non-divisible main pot; remainder goes to first winner', () => {
-    const game = new Game('test');
     // Dave folded after contributing 50. Alice, Bob, Charlie each put in 100.
-    // Total pot = 350; main pot (50*4=200) eligible to [alice, bob, charlie];
-    // side pot (50*3=150) eligible to [alice, bob, charlie].
-    // 200 / 3 = 66 remainder 2 → first winner gets +2.
-    const alice = new Player('alice', 'Alice', 0);
-    const bob = new Player('bob', 'Bob', 0);
-    const charlie = new Player('charlie', 'Charlie', 0);
-    const dave = new Player('dave', 'Dave', 0);
-    game.addPlayer(alice);
-    game.addPlayer(bob);
-    game.addPlayer(charlie);
-    game.addPlayer(dave);
+    // Total pot = 350; all three live players tie on the board hand.
+    const alice = new Player('alice', 'Alice', 100);
+    const bob = new Player('bob', 'Bob', 100);
+    const charlie = new Player('charlie', 'Charlie', 100);
+    const dave = new Player('dave', 'Dave', 50);
 
-    game.state = GameState.River;
-    game.pot = 350;
-    alice.contributedThisHand = 100;
-    bob.contributedThisHand = 100;
-    charlie.contributedThisHand = 100;
-    dave.contributedThisHand = 50;
-    alice.currentAction = PlayerAction.Call;
-    bob.currentAction = PlayerAction.Call;
-    charlie.currentAction = PlayerAction.Call;
-    dave.currentAction = PlayerAction.Fold;
+    alice.bet(100);
+    bob.bet(100);
+    charlie.bet(100);
+    dave.bet(50);
+
+    alice.setAction(PlayerAction.Call);
+    bob.setAction(PlayerAction.Call);
+    charlie.setAction(PlayerAction.Call);
+    dave.setAction(PlayerAction.Fold);
 
     // All three live players share the same board hand (board plays).
-    // Community: A-A-A-K-K (board = full house). Kickers irrelevant.
-    game.communityCards = [
+    // Community: A-A-A-K-K (full house). Kickers irrelevant.
+    const community = [
       c(Suit.Spades, Rank.Ace),
       c(Suit.Hearts, Rank.Ace),
       c(Suit.Diamonds, Rank.Ace),
       c(Suit.Spades, Rank.King),
       c(Suit.Hearts, Rank.King),
     ];
-    alice.currentHand = [c(Suit.Clubs, Rank.Two), c(Suit.Clubs, Rank.Three)];
-    bob.currentHand = [c(Suit.Diamonds, Rank.Four), c(Suit.Diamonds, Rank.Five)];
-    charlie.currentHand = [c(Suit.Spades, Rank.Six), c(Suit.Spades, Rank.Seven)];
-    dave.currentHand = [c(Suit.Clubs, Rank.Eight), c(Suit.Clubs, Rank.Nine)];
+    alice.receiveCards([c(Suit.Clubs, Rank.Two), c(Suit.Clubs, Rank.Three)]);
+    bob.receiveCards([c(Suit.Diamonds, Rank.Four), c(Suit.Diamonds, Rank.Five)]);
+    charlie.receiveCards([c(Suit.Spades, Rank.Six), c(Suit.Spades, Rank.Seven)]);
+    dave.receiveCards([c(Suit.Clubs, Rank.Eight), c(Suit.Clubs, Rank.Nine)]);
 
-    game.scoreHand();
+    resolveShowdown([alice, bob, charlie, dave], community);
 
-    // All three tie; chips must be conserved.
+    // All three tie; chips must be conserved (no rake).
     expect(alice.chips + bob.chips + charlie.chips + dave.chips).toBe(350);
-    // Remainder goes to first winner — verify no chips are lost.
-    const total = alice.chips + bob.chips + charlie.chips;
-    expect(total).toBe(350);
+    expect(alice.chips + bob.chips + charlie.chips).toBe(350);
+  });
+
+  it('computeSidePots correctly partitions by contribution level', () => {
+    const alice = new Player('alice', 'Alice', 50);
+    const bob = new Player('bob', 'Bob', 500);
+
+    alice.bet(50);
+    bob.bet(200);
+    alice.setAction(PlayerAction.Call);
+    bob.setAction(PlayerAction.Raise);
+
+    const pots = computeSidePots([alice, bob]);
+    // Main pot: alice's 50 matched by bob's 50 = 100; eligible: alice, bob
+    // Side pot: bob's remaining 150; eligible: bob only
+    expect(pots).toHaveLength(2);
+    expect(pots[0].amount).toBe(100);
+    expect(pots[0].eligible).toHaveLength(2);
+    expect(pots[1].amount).toBe(150);
+    expect(pots[1].eligible).toHaveLength(1);
+    expect(pots[1].eligible[0].id).toBe('bob');
+  });
+});
+
+describe('RoomManager', () => {
+  it('creates a room on first access and reuses it', () => {
+    const manager = new RoomManager();
+    const game1 = manager.getOrCreateRoom('ROOM');
+    const game2 = manager.getOrCreateRoom('ROOM');
+    expect(game1).toBe(game2);
+  });
+
+  it('returns undefined for a room that was never created', () => {
+    const manager = new RoomManager();
+    expect(manager.getRoom('NONE')).toBeUndefined();
+  });
+
+  it('destroys an empty room', () => {
+    const manager = new RoomManager();
+    manager.getOrCreateRoom('ROOM');
+    expect(manager.getRoom('ROOM')).toBeDefined();
+    manager.checkAndDestroyEmptyRoom('ROOM');
+    expect(manager.getRoom('ROOM')).toBeUndefined();
+  });
+
+  it('removes player from room and destroys it when empty after disconnect', () => {
+    const manager = new RoomManager();
+    const game = manager.getOrCreateRoom('ROOM');
+    const player = new Player('p1', 'Alice', 1000);
+    player.socketId = 'socket-1';
+    game.addPlayer(player);
+
+    const roomCode = manager.handleDisconnect('socket-1');
+    expect(roomCode).toBe('ROOM');
+    // Player was in Waiting state so removed; room is now empty and destroyed.
+    expect(manager.getRoom('ROOM')).toBeUndefined();
+  });
+
+  it('handles disconnect of unknown socket gracefully', () => {
+    const manager = new RoomManager();
+    const result = manager.handleDisconnect('unknown-socket');
+    expect(result).toBeUndefined();
+  });
+
+  it('different instances have isolated state', () => {
+    const m1 = new RoomManager();
+    const m2 = new RoomManager();
+    m1.getOrCreateRoom('SHARED');
+    expect(m2.getRoom('SHARED')).toBeUndefined();
   });
 });
 

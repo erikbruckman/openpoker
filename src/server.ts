@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import path from 'path';
 
+import { RoomManager } from './RoomManager';
 import { SocketController } from './controllers/SocketController';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -27,7 +28,8 @@ const io = new Server(httpServer, {
   },
 });
 
-new SocketController(io);
+const roomManager = new RoomManager();
+new SocketController(io, roomManager);
 
 httpServer.listen(PORT, () => {
   console.log(`[Server] Socket.io server running on port ${PORT}`);

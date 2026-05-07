@@ -32,22 +32,28 @@ Both the backend (`npm run dev`) and frontend (`cd frontend && npm run dev`) mus
 
 ### Backend (src/)
 
-State machine hosted in `Game.ts`. Game flow:
+State machine hosted in `src/game/Game.ts`. Game flow:
 
 ```
 Waiting → PreFlop → Flop → Turn → River → Showdown → (back to Waiting)
 ```
 
-**Entry point**: `src/server.ts` — Express + Socket.io, instantiates `SocketController`.
+**Entry point**: `src/server.ts` — Express + Socket.io, instantiates `RoomManager` and `SocketController`.
 
 **Core files:**
-- `src/Game.ts` — All game logic: dealing, betting rounds, pot management, winners, state transitions. This is the most complex file.
-- `src/RoomManager.ts` — Singleton `Map<roomCode, Game>`. Creates rooms on `joinRoom`, removes them when empty.
-- `src/controllers/SocketController.ts` — WebSocket event dispatcher. Thin layer: validates, delegates to `RoomManager`/`Game`, emits results.
-- `src/models/Player.ts` — Player state: chips, currentBet, currentAction, isDisconnected, hole cards.
+- `src/game/Game.ts` — Orchestrator: holds mutable state, delegates to sub-modules below.
+- `src/game/Dealing.ts` — Pure functions: `postBlinds`, `dealHoleCards`, `dealCommunityCards`.
+- `src/game/BettingRound.ts` — Pure functions: action validation, turn advancement, round-over detection.
+- `src/game/Showdown.ts` — `computeSidePots` and `resolveShowdown` (uses `HandEvaluator`).
+- `src/game/serialize.ts` — `serializePublicState` and `serializePrivateState`.
+- `src/RoomManager.ts` — Plain class (`new RoomManager()`), not a singleton. `Map<roomCode, Game>`. Instantiated in `server.ts` and injected into `SocketController`.
+- `src/controllers/SocketController.ts` — WebSocket event dispatcher. Thin layer: validates, delegates to `RoomManager`/`Game`, emits results. Accepts `RoomManager` via constructor.
+- `src/models/Player.ts` — Encapsulated player state. Game-logic fields (`chips`, `currentBet`, `currentAction`, `currentHand`, `contributedThisHand`) are private with readonly getters; infrastructure fields (`socketId`, `isDisconnected`) are public.
 - `src/utils/HandEvaluator.ts` — Hand ranking and comparison. Fisher-Yates shuffle lives in `src/models/Deck.ts`.
 
 **State separation**: `Game` exposes `getPublicState()` (broadcast to room) and `getPrivateState(playerId)` (hole cards, sent to individual). Never leak private state to the room broadcast.
+
+**Encapsulation**: All mutable state on `Game` and `Player` is private. Callers use readonly getters and methods — no direct field mutation from outside the class.
 
 ### Shared types (shared/)
 
@@ -103,9 +109,9 @@ Server emits `gameState` after every state-changing event. Always emit both `gam
 
 ## Testing
 
-Only `src/utils/HandEvaluator.ts` has tests (`HandEvaluator.test.ts` co-located). New tests for hand evaluation logic belong in that file.
+`src/utils/HandEvaluator.test.ts` — hand evaluation edge cases.
 
-For new game logic in `Game.ts`, add unit tests in a new file `src/__tests__/Game.test.ts` (Jest will pick it up automatically).
+`src/__tests__/Game.test.ts` — game flow integration tests, `RoomManager` isolation tests, side-pot unit tests (via `resolveShowdown`/`computeSidePots` directly), and input validation.
 
 Run tests: `npm test` (from repo root).
 
@@ -125,22 +131,22 @@ When editing hand evaluation logic, run `npm test` after every change.
 ## Gotchas
 
 - The frontend Socket.io URL is hardcoded to `http://localhost:3001` in `usePokerEngine.ts:9`. For production or Docker, this must be parameterized via an env variable.
-- `RoomManager` is a singleton (module-level instance). Tests that exercise it will share state unless the module cache is cleared.
 - `src/models/PlayerAction.ts` is a thin re-export of `PlayerAction` from `shared/types.ts` — this exists for backwards compatibility. Import directly from `shared/types.ts` in new code.
 - Vite proxying is not configured. The frontend and backend must run on different ports; CORS is enabled in `src/server.ts` for `*` origins in dev.
-- `GameState.Showdown` transitions back to `GameState.Waiting` after the winner is announced — there is a delay (`setTimeout`) in `Game.ts` before the transition. Do not assume the state is synchronously updated.
+- `GameState.Showdown` transitions back to `GameState.Waiting` synchronously (no `setTimeout`) — `scoreHand()` calls `endHand()` inline.
+- `src/Game.ts` is a thin re-export shim (`export { Game } from './game/Game'`). Prefer importing from `./game/Game` directly in new code.
 
 ---
 
 ## Common Tasks
 
-**Add a new Socket.io event**: Define the handler in `SocketController.ts`, add the business logic to `Game.ts` or `RoomManager.ts`, update shared types if the payload is new.
+**Add a new Socket.io event**: Define the handler in `SocketController.ts`, add the business logic to `src/game/Game.ts` or `RoomManager.ts`, update shared types if the payload is new.
 
-**Add a new game action**: Add to `PlayerAction` enum in `shared/types.ts`, handle in `Game.handlePlayerAction()`, update `SocketController`, add action button in `PokerTable.tsx`.
+**Add a new game action**: Add to `PlayerAction` enum in `shared/types.ts`, handle in `BettingRound.applyPlayerAction()` and `Game.handlePlayerAction()`, update `SocketController`, add action button in `PokerTable.tsx`.
 
 **Add a new UI component**: Create in `frontend/src/components/`, import into `PokerTable.tsx` or `App.tsx`. No routing library — conditional rendering only.
 
-**Change game rules** (e.g., blind amounts, starting chips): These are hardcoded in `Game.ts`. Search for numeric literals there.
+**Change game rules** (e.g., blind amounts, starting chips): These live in `src/config/gameConfig.ts`.
 
 ---
 

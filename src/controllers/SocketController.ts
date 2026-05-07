@@ -9,9 +9,9 @@ export class SocketController {
   private io: Server;
   private roomManager: RoomManager;
 
-  constructor(io: Server) {
+  constructor(io: Server, roomManager: RoomManager) {
     this.io = io;
-    this.roomManager = RoomManager.getInstance();
+    this.roomManager = roomManager;
     this.initialize();
   }
 
