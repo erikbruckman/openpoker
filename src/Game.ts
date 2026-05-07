@@ -2,7 +2,7 @@ import { Card } from './models/Card';
 import { Deck } from './models/Deck';
 import { Player } from './models/Player';
 import { HandEvaluator, HandResult } from './utils/HandEvaluator';
-import { PlayerAction } from './models/PlayerAction';
+import { PlayerAction } from '../shared/types';
 
 import { GameState, PublicGameState, PrivateGameState } from '../shared/types';
 

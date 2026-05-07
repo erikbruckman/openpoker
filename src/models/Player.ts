@@ -1,5 +1,5 @@
 import { Card } from './Card';
-import { PlayerAction } from './PlayerAction';
+import { PlayerAction } from '../../shared/types';
 
 export class Player {
   public currentHand: Card[] = [];
