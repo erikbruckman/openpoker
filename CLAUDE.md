@@ -69,7 +69,15 @@ Key types:
 
 **Entry**: `main.tsx` → `App.tsx` → conditionally renders `JoinScreen` or `PokerTable`.
 
-**All Socket.io logic is isolated in `hooks/usePokerEngine.ts`**. This hook owns the socket connection, game state, private state, and all emitters. Components receive state and callback props — they do not touch the socket directly.
+**Socket.io logic is split across three composable hooks**: `useSocket` (connection lifecycle + status), `useGameState` (server state listeners), `useGameActions` (emitters). `usePokerEngine` composes all three and is the only hook components import.
+
+**Connection status** is a `ConnectionStatus` type (`'connecting' | 'connected' | 'reconnecting' | 'disconnected'`). The `ConnectionBanner` component renders a fixed banner for non-connected states; `ErrorToast` shows server error events with auto-dismiss.
+
+**Auto-rejoin on page refresh**: on mount, `usePokerEngine` reads `?room=` from the URL and `playerName`/`playerId` from `localStorage`. If all three are present, it auto-emits `joinRoom`. On socket reconnect, the `connect` handler re-emits `joinRoom` using the current refs.
+
+**URL routing**: after `joinRoom`, the URL is updated to `?room=<CODE>` via `history.replaceState`. Room code is also stored in localStorage as `playerName` (the name is stored too for auto-rejoin).
+
+**Styling**: CSS Modules (`*.module.css`) per component for component-scoped styles. Global tokens (colors, spacing, radii) are CSS custom properties in `index.css`. Utility classes (`.glass-panel`, `.btn-*`, `.input-field`, `.animate-*`) remain global in `index.css`.
 
 **Player positioning** in `PokerTable.tsx` uses trigonometry to place players around an oval table with absolute positioning and CSS transforms.
 
@@ -130,7 +138,7 @@ When editing hand evaluation logic, run `npm test` after every change.
 
 ## Gotchas
 
-- The frontend Socket.io URL is hardcoded to `http://localhost:3001` in `usePokerEngine.ts:9`. For production or Docker, this must be parameterized via an env variable.
+- The frontend Socket.io URL defaults to `http://localhost:3001` in `usePokerEngine.ts`. Override with `VITE_API_URL` env variable for production or Docker.
 - `src/models/PlayerAction.ts` is a thin re-export of `PlayerAction` from `shared/types.ts` — this exists for backwards compatibility. Import directly from `shared/types.ts` in new code.
 - Vite proxying is not configured. The frontend and backend must run on different ports; CORS is enabled in `src/server.ts` for `*` origins in dev.
 - `GameState.Showdown` transitions back to `GameState.Waiting` synchronously (no `setTimeout`) — `scoreHand()` calls `endHand()` inline.

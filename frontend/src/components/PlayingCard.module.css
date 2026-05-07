@@ -1,0 +1,56 @@
+.cardBack {
+  width: 60px;
+  height: 84px;
+  background-color: #1e293b;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 4px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+}
+
+.cardBackInner {
+  width: 80%;
+  height: 80%;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.card {
+  width: 60px;
+  height: 84px;
+  background-color: #f8fafc;
+  border-radius: 8px;
+  margin: 0 4px;
+  padding: 4px 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+  font-weight: bold;
+  position: relative;
+}
+
+.corner {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.cornerSuit {
+  font-size: 12px;
+}
+
+.cornerBottom {
+  transform: rotate(180deg);
+}
+
+.centerSuit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  opacity: 0.8;
+}
