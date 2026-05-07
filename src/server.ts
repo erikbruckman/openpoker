@@ -1,30 +1,34 @@
 import express from 'express';
 import { createServer } from 'http';
-import { Server, Socket } from 'socket.io';
+import { Server } from 'socket.io';
 import cors from 'cors';
-
+import path from 'path';
 
 import { SocketController } from './controllers/SocketController';
 
-const app = express();
-app.use(cors());
+const PORT = parseInt(process.env.PORT ?? '3001', 10);
+const corsOrigin: string | string[] = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
+  : '*';
 
-// Basic health check route so visiting the server in a browser doesn't show an error
-app.get('/', (req, res) => {
-  res.send('OpenPoker WebSocket Server is running! Connect via socket.io to start playing.');
+const app = express();
+app.use(cors({ origin: corsOrigin }));
+app.use(express.static(path.join(__dirname, '../public')));
+
+app.get('/health', (_req, res) => {
+  res.send('ok');
 });
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: '*',
+    origin: corsOrigin,
     methods: ['GET', 'POST'],
   },
 });
 
 new SocketController(io);
 
-const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
   console.log(`[Server] Socket.io server running on port ${PORT}`);
 });
