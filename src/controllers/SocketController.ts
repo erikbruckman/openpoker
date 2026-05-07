@@ -2,6 +2,8 @@ import { Server, Socket } from 'socket.io';
 import { RoomManager } from '../RoomManager';
 import { Player } from '../models/Player';
 import { v4 as uuidv4 } from 'uuid';
+import { validatePlayerName, validateRoomCode, validateAction, validateAmount } from '../utils/validate';
+import { GAME_CONFIG } from '../config/gameConfig';
 
 export class SocketController {
   private io: Server;
@@ -13,7 +15,6 @@ export class SocketController {
     this.initialize();
   }
 
-  // Broadcasts the game state to everyone in a room, and private state to individuals
   private broadcastGameState(roomCode: string) {
     const game = this.roomManager.getRoom(roomCode);
     if (!game) return;
@@ -21,7 +22,6 @@ export class SocketController {
     const publicState = game.getPublicState();
     this.io.to(roomCode).emit('gameState', publicState);
 
-    // Send private hole cards to each player
     for (const player of game.players) {
       if (player.socketId && !player.isDisconnected) {
         this.io.to(player.socketId).emit('privateState', game.getPrivateState(player.id));
@@ -34,46 +34,58 @@ export class SocketController {
       console.log(`[Socket] User connected: ${socket.id}`);
 
       socket.on('joinRoom', ({ playerName, roomCode, playerId }) => {
-        // Find if this player is already in a room and reconnect them there, or just in the requested room
-        const game = this.roomManager.getOrCreateRoom(roomCode);
-        
-        let player = playerId ? game.players.find(p => p.id === playerId) : undefined;
+        const validName = validatePlayerName(playerName);
+        if (!validName) { socket.emit('error', 'Invalid player name.'); return; }
 
-        if (player) {
-          // Reconnect existing player
-          player.socketId = socket.id;
-          player.name = playerName;
-          player.isDisconnected = false;
-        } else {
-          // If the socket was previously associated with another player, leave old room
+        const validRoomCode = validateRoomCode(roomCode);
+        if (!validRoomCode) { socket.emit('error', 'Invalid room code.'); return; }
+
+        const game = this.roomManager.getOrCreateRoom(validRoomCode);
+        let player: Player | undefined;
+
+        // Reconnect: only allowed when the player exists and is actually disconnected.
+        if (playerId && typeof playerId === 'string') {
+          const existing = game.players.find(p => p.id === playerId);
+          if (existing) {
+            if (!existing.isDisconnected) {
+              socket.emit('error', 'This player is already connected.');
+              return;
+            }
+            existing.socketId = socket.id;
+            existing.name = validName;
+            existing.isDisconnected = false;
+            player = existing;
+          }
+        }
+
+        if (!player) {
           const oldRoom = this.roomManager.removePlayerFromAllRooms(socket.id);
           if (oldRoom) {
-              socket.leave(oldRoom);
-              this.broadcastGameState(oldRoom);
+            socket.leave(oldRoom);
+            this.broadcastGameState(oldRoom);
           }
 
-          // Create new player with 5000 chips
-          const newPlayerId = playerId || uuidv4();
-          player = new Player(newPlayerId, playerName, 5000);
+          // Always generate playerId server-side; never trust the client's proposed ID.
+          player = new Player(uuidv4(), validName, GAME_CONFIG.startingChips);
           player.socketId = socket.id;
           game.addPlayer(player);
         }
 
-        socket.join(roomCode);
+        socket.join(validRoomCode);
         socket.emit('roomJoined', { playerId: player.id });
-
-        console.log(`[Socket] ${playerName} joined room ${roomCode}`);
-        
-        // Broadcast updated state
-        this.broadcastGameState(roomCode);
+        console.log(`[Socket] ${validName} joined room ${validRoomCode}`);
+        this.broadcastGameState(validRoomCode);
       });
 
       socket.on('startHand', ({ roomCode }) => {
-        const game = this.roomManager.getRoom(roomCode);
+        const validRoomCode = validateRoomCode(roomCode);
+        if (!validRoomCode) { socket.emit('error', 'Invalid room code.'); return; }
+
+        const game = this.roomManager.getRoom(validRoomCode);
         if (game) {
           try {
             game.startHand();
-            this.broadcastGameState(roomCode);
+            this.broadcastGameState(validRoomCode);
           } catch (e: any) {
             socket.emit('error', e.message);
           }
@@ -81,13 +93,26 @@ export class SocketController {
       });
 
       socket.on('playerAction', ({ roomCode, action, amount }) => {
-        const game = this.roomManager.getRoom(roomCode);
+        const validRoomCode = validateRoomCode(roomCode);
+        if (!validRoomCode) { socket.emit('error', 'Invalid room code.'); return; }
+
+        const validAction = validateAction(action);
+        if (!validAction) { socket.emit('error', 'Invalid action.'); return; }
+
+        let validAmount: number | undefined;
+        if (amount !== undefined && amount !== null) {
+          const amt = validateAmount(amount);
+          if (amt === null) { socket.emit('error', 'Invalid bet amount.'); return; }
+          validAmount = amt;
+        }
+
+        const game = this.roomManager.getRoom(validRoomCode);
         if (game) {
           const player = game.players.find(p => p.socketId === socket.id);
           if (player) {
             try {
-              game.handlePlayerAction(player.id, action, amount);
-              this.broadcastGameState(roomCode);
+              game.handlePlayerAction(player.id, validAction, validAmount);
+              this.broadcastGameState(validRoomCode);
             } catch (e: any) {
               socket.emit('error', e.message);
             }
@@ -97,11 +122,9 @@ export class SocketController {
 
       socket.on('disconnect', () => {
         console.log(`[Socket] User disconnected: ${socket.id}`);
-        // Handle disconnect mid-hand gracefully.
-        // We look for any room this socket is in
         const roomCode = this.roomManager.handleDisconnect(socket.id);
         if (roomCode) {
-            this.broadcastGameState(roomCode);
+          this.broadcastGameState(roomCode);
         }
       });
     });

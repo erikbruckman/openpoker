@@ -1,5 +1,5 @@
 import { Game } from './Game';
-import { GameState } from '../shared/types';
+import { GameState, PlayerAction } from '../shared/types';
 
 export class RoomManager {
   private static instance: RoomManager;
@@ -74,7 +74,7 @@ export class RoomManager {
         if (game.state !== GameState.Waiting && game.state !== GameState.Showdown) {
           if (game.players[game.currentPlayerTurn]?.id === player.id) {
              try {
-                game.handlePlayerAction(player.id, 'fold');
+                game.handlePlayerAction(player.id, PlayerAction.Fold);
              } catch(e) {}
           }
         } else {
